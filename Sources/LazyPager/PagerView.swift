@@ -381,6 +381,23 @@ class PagerView<Element, Loader: ViewLoader, Content: View>: UIScrollView, UIScr
     }
     
     func goToPage(_ page: Int, animated: Bool) {
+        // Check if we're jumping outside the current loaded range
+        // If so, clear all views at once to avoid O(n) constraint re-linking overhead
+        let shouldClearAll: Bool
+        if let first = loadedViews.first, let last = loadedViews.last {
+            shouldClearAll = page < first.index - config.preloadAmount || page > last.index + config.preloadAmount
+        } else {
+            shouldClearAll = false
+        }
+        
+        if shouldClearAll {
+            // Efficiently clear all views at once without constraint re-linking
+            for view in loadedViews {
+                view.removeFromSuperview()
+            }
+            loadedViews.removeAll()
+        }
+        
         currentIndex = page
         DispatchQueue.main.async {
             self.computeViewState(immediate: true)
