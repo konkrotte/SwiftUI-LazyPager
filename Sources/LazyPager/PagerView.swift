@@ -1,28 +1,28 @@
 //
 //  PagerView.swift
-//  
+//
 //
 //  Created by Brian Floersch on 7/8/23.
 //
 
 import Foundation
-import UIKit
 import SwiftUI
+import UIKit
 
 protocol ViewLoader: AnyObject {
-    
+
     associatedtype Element
     associatedtype Content: View
-    
+
     var dataCount: Int { get }
-    
+
     func loadView(at: Int) -> ZoomableView<Element, Content>?
     func updateHostedView(for zoomableView: ZoomableView<Element, Content>)
 }
 
-class PagerView<Element, Loader: ViewLoader, Content: View>: UIScrollView, UIScrollViewDelegate where Loader.Element == Element, Loader.Content == Content {
-    
-    
+class PagerView<Element, Loader: ViewLoader, Content: View>: UIScrollView, UIScrollViewDelegate
+where Loader.Element == Element, Loader.Content == Content {
+
     var pageSpacing: CGFloat {
         config.pageSpacing
     }
@@ -31,16 +31,16 @@ class PagerView<Element, Loader: ViewLoader, Content: View>: UIScrollView, UIScr
     var config: Config<Element>
     weak var viewLoader: Loader?
     var lastBoundsSize: CGSize?
-    
+
     var isRotating = false
     var page: Binding<Int>
-    
+
     var currentIndex: Int = 0 {
         didSet {
             loadMoreIfNeeded()
         }
     }
-    
+
     var absoluteOffset: CGFloat {
         var absoluteOffset: CGFloat
         if config.direction == .horizontal {
@@ -50,41 +50,41 @@ class PagerView<Element, Loader: ViewLoader, Content: View>: UIScrollView, UIScr
         }
         return absoluteOffset
     }
-    
+
     var relativeIndex: Int {
         if absoluteOffset.isInfinite || absoluteOffset.isNaN {
             return 0
         }
         var idx = Int(round(absoluteOffset))
         idx = idx < 0 ? 0 : idx
-        idx = idx >= loadedViews.count ? loadedViews.count-1 : idx
+        idx = idx >= loadedViews.count ? loadedViews.count - 1 : idx
         return idx
     }
-    
+
     var currentView: ZoomableView<Element, Content> {
         loadedViews[relativeIndex]
     }
-    
+
     var pageWidth: CGFloat {
         if config.direction == .horizontal {
             return frame.width + pageSpacing
         }
         return frame.width
     }
-    
+
     var pageHeight: CGFloat {
         if config.direction == .vertical {
             return frame.height + pageSpacing
         }
         return frame.height
     }
-    
+
     init(page: Binding<Int>, config: Config<Element>) {
         self.currentIndex = page.wrappedValue
         self.page = page
         self.config = config
         super.init(frame: .zero)
-        
+
         showsVerticalScrollIndicator = false
         showsHorizontalScrollIndicator = false
         backgroundColor = .clear
@@ -92,14 +92,13 @@ class PagerView<Element, Loader: ViewLoader, Content: View>: UIScrollView, UIScr
         delegate = self
         contentInsetAdjustmentBehavior = .always
         // DEBUG
-//        backgroundColor = .blue
+        //        backgroundColor = .blue
     }
-    
-    
+
     required init?(coder: NSCoder) {
         fatalError("Not implemented")
     }
-    
+
     public override func layoutSubviews() {
         super.layoutSubviews()
         if !isFirstLoad {
@@ -108,20 +107,20 @@ class PagerView<Element, Loader: ViewLoader, Content: View>: UIScrollView, UIScr
         } else if isRotating {
             ensureCurrentPage(animated: false)
         }
-    
+
         // Ensures insets are updated when the screen rotates
         if bounds.size != lastBoundsSize {
             updateInsets(animated: lastBoundsSize != nil)
             lastBoundsSize = bounds.size
         }
     }
-    
+
     func computeViewState(immediate: Bool = false) {
         delegate = nil
         DispatchQueue.main.async {
             self.delegate = self
         }
-        
+
         if subviews.isEmpty {
             for i in currentIndex...(currentIndex + config.preloadAmount) {
                 if immediate {
@@ -138,7 +137,7 @@ class PagerView<Element, Loader: ViewLoader, Content: View>: UIScrollView, UIScr
                 }
             }
         }
-        
+
         if let lastView = loadedViews.last {
             let diff = lastView.index - currentIndex
             if diff < (config.preloadAmount) {
@@ -151,11 +150,13 @@ class PagerView<Element, Loader: ViewLoader, Content: View>: UIScrollView, UIScr
                 }
             }
         }
-        
+
         if let firstView = loadedViews.first {
             let diff = currentIndex - firstView.index
             if diff < (config.preloadAmount) {
-                for i in (firstView.index - (config.preloadAmount - diff)..<firstView.index).reversed() {
+                for i in (firstView.index - (config.preloadAmount - diff)..<firstView.index)
+                    .reversed()
+                {
                     if immediate {
                         schedulePrepend(at: i)
                     } else {
@@ -166,17 +167,18 @@ class PagerView<Element, Loader: ViewLoader, Content: View>: UIScrollView, UIScr
         }
         self.removeOutOfFrameViews()
         updateInsets(animated: false)
-        
+
         // Debug
-//         print(self.loadedViews.map { $0.index })
+        //         print(self.loadedViews.map { $0.index })
     }
-    
+
     func updateInsets(animated: Bool) {
         let update = {
-            self.contentInset = UIEdgeInsets(top: -self.safeAreaInsets.top,
-                                             left: -self.safeAreaInsets.left,
-                                             bottom: -self.safeAreaInsets.bottom,
-                                             right: -self.safeAreaInsets.right)
+            self.contentInset = UIEdgeInsets(
+                top: -self.safeAreaInsets.top,
+                left: -self.safeAreaInsets.left,
+                bottom: -self.safeAreaInsets.bottom,
+                right: -self.safeAreaInsets.right)
         }
         if !animated {
             update()
@@ -186,8 +188,7 @@ class PagerView<Element, Loader: ViewLoader, Content: View>: UIScrollView, UIScr
             }
         }
     }
-    
-    
+
     func addSubview(_ zoomView: ZoomableView<Element, Content>) {
         super.addSubview(zoomView)
         NSLayoutConstraint.activate([
@@ -195,11 +196,12 @@ class PagerView<Element, Loader: ViewLoader, Content: View>: UIScrollView, UIScr
             zoomView.heightAnchor.constraint(equalTo: frameLayoutGuide.heightAnchor),
         ])
     }
-    
+
     func addFirstView(_ zoomView: ZoomableView<Element, Content>) {
         if config.direction == .horizontal {
             zoomView.leadingConstraint = zoomView.leadingAnchor.constraint(equalTo: leadingAnchor)
-            zoomView.trailingConstraint = zoomView.trailingAnchor.constraint(equalTo: trailingAnchor)
+            zoomView.trailingConstraint = zoomView.trailingAnchor.constraint(
+                equalTo: trailingAnchor)
             zoomView.leadingConstraint?.isActive = true
             zoomView.trailingConstraint?.isActive = true
         } else {
@@ -209,7 +211,7 @@ class PagerView<Element, Loader: ViewLoader, Content: View>: UIScrollView, UIScr
             zoomView.bottomConstraint?.isActive = true
         }
     }
-    
+
     func scheduleAppend(at index: Int) {
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
@@ -220,37 +222,40 @@ class PagerView<Element, Loader: ViewLoader, Content: View>: UIScrollView, UIScr
             self.appendView(at: index)
         }
     }
-    
+
     func appendView(at index: Int) {
         guard let zoomView = viewLoader?.loadView(at: index) else { return }
-        
+
         addSubview(zoomView)
-        
+
         if let lastView = loadedViews.last {
             if config.direction == .horizontal {
                 lastView.trailingConstraint?.isActive = false
                 lastView.trailingConstraint = nil
-                
-                zoomView.leadingConstraint = zoomView.leadingAnchor.constraint(equalTo: lastView.trailingAnchor, constant: pageSpacing)
-                zoomView.trailingConstraint = zoomView.trailingAnchor.constraint(equalTo: trailingAnchor)
+
+                zoomView.leadingConstraint = zoomView.leadingAnchor.constraint(
+                    equalTo: lastView.trailingAnchor, constant: pageSpacing)
+                zoomView.trailingConstraint = zoomView.trailingAnchor.constraint(
+                    equalTo: trailingAnchor)
                 zoomView.leadingConstraint?.isActive = true
                 zoomView.trailingConstraint?.isActive = true
             } else {
                 lastView.bottomConstraint?.isActive = false
                 lastView.bottomConstraint = nil
-                
-                zoomView.topConstraint = zoomView.topAnchor.constraint(equalTo: lastView.bottomAnchor, constant: pageSpacing)
+
+                zoomView.topConstraint = zoomView.topAnchor.constraint(
+                    equalTo: lastView.bottomAnchor, constant: pageSpacing)
                 zoomView.bottomConstraint = zoomView.bottomAnchor.constraint(equalTo: bottomAnchor)
                 zoomView.topConstraint?.isActive = true
                 zoomView.bottomConstraint?.isActive = true
             }
-            
+
         } else {
             addFirstView(zoomView)
         }
         loadedViews.append(zoomView)
     }
-    
+
     func schedulePrepend(at index: Int) {
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
@@ -261,35 +266,38 @@ class PagerView<Element, Loader: ViewLoader, Content: View>: UIScrollView, UIScr
             self.prependView(at: index)
         }
     }
-    
+
     func prependView(at index: Int) {
         guard let zoomView = viewLoader?.loadView(at: index) else { return }
-        
+
         addSubview(zoomView)
-        
+
         if let firstView = loadedViews.first {
             if config.direction == .horizontal {
                 firstView.leadingConstraint?.isActive = false
                 firstView.leadingConstraint = nil
-                
-                zoomView.leadingConstraint = zoomView.leadingAnchor.constraint(equalTo: leadingAnchor)
-                zoomView.trailingConstraint = zoomView.trailingAnchor.constraint(equalTo: firstView.leadingAnchor, constant: -pageSpacing)
+
+                zoomView.leadingConstraint = zoomView.leadingAnchor.constraint(
+                    equalTo: leadingAnchor)
+                zoomView.trailingConstraint = zoomView.trailingAnchor.constraint(
+                    equalTo: firstView.leadingAnchor, constant: -pageSpacing)
                 zoomView.leadingConstraint?.isActive = true
                 zoomView.trailingConstraint?.isActive = true
             } else {
                 firstView.topConstraint?.isActive = false
                 firstView.topConstraint = nil
-                
+
                 zoomView.topConstraint = zoomView.topAnchor.constraint(equalTo: topAnchor)
-                zoomView.bottomConstraint = zoomView.bottomAnchor.constraint(equalTo: firstView.topAnchor, constant: -pageSpacing)
+                zoomView.bottomConstraint = zoomView.bottomAnchor.constraint(
+                    equalTo: firstView.topAnchor, constant: -pageSpacing)
                 zoomView.topConstraint?.isActive = true
                 zoomView.bottomConstraint?.isActive = true
             }
-            
+
         } else {
             addFirstView(zoomView)
         }
-        
+
         loadedViews.insert(zoomView, at: 0)
         if config.direction == .horizontal {
             contentOffset.x += pageWidth
@@ -297,43 +305,48 @@ class PagerView<Element, Loader: ViewLoader, Content: View>: UIScrollView, UIScr
             contentOffset.y += pageHeight
         }
     }
-    
+
     func reloadViews() {
         for view in loadedViews {
             viewLoader?.updateHostedView(for: view)
         }
     }
-    
+
     func remove(view: ZoomableView<Element, Content>) {
-        guard let viewIndex = loadedViews.firstIndex(where: { $0.index == view.index }) else { return }
-        
+        guard let viewIndex = loadedViews.firstIndex(where: { $0.index == view.index }) else {
+            return
+        }
+
         let viewToDisconnect = loadedViews[viewIndex]
         let prevView: ZoomableView<Element, Content>? = loadedViews[safe: viewIndex - 1]
         let nextView: ZoomableView<Element, Content>? = loadedViews[safe: viewIndex + 1]
-        
+
         let removedIndex = viewToDisconnect.index
-        
+
         viewToDisconnect.removeFromSuperview()
         loadedViews.remove(at: viewIndex)
-        
+
         if config.direction == .horizontal {
             if let prevView = prevView, let nextView = nextView {
                 // Both exist, removing from the middle
                 prevView.trailingConstraint?.isActive = false
-                prevView.trailingConstraint = prevView.trailingAnchor.constraint(equalTo: nextView.leadingAnchor, constant: -pageSpacing)
+                prevView.trailingConstraint = prevView.trailingAnchor.constraint(
+                    equalTo: nextView.leadingAnchor, constant: -pageSpacing)
                 prevView.trailingConstraint?.isActive = true
             } else if let prevView = prevView {
                 // This was the last view
                 prevView.trailingConstraint?.isActive = false
-                prevView.trailingConstraint = prevView.trailingAnchor.constraint(equalTo: trailingAnchor)
+                prevView.trailingConstraint = prevView.trailingAnchor.constraint(
+                    equalTo: trailingAnchor)
                 prevView.trailingConstraint?.isActive = true
             } else if let nextView = nextView {
                 // This was the first view
                 nextView.leadingConstraint?.isActive = false
-                nextView.leadingConstraint = nextView.leadingAnchor.constraint(equalTo: leadingAnchor)
+                nextView.leadingConstraint = nextView.leadingAnchor.constraint(
+                    equalTo: leadingAnchor)
                 nextView.leadingConstraint?.isActive = true
             }
-            
+
             if removedIndex < (loadedViews.first?.index ?? 0) {
                 contentOffset.x -= pageWidth
             }
@@ -341,7 +354,8 @@ class PagerView<Element, Loader: ViewLoader, Content: View>: UIScrollView, UIScr
             if let prevView = prevView, let nextView = nextView {
                 // Both exist, removing from the middle
                 prevView.bottomConstraint?.isActive = false
-                prevView.bottomConstraint = prevView.bottomAnchor.constraint(equalTo: nextView.topAnchor, constant: -pageSpacing)
+                prevView.bottomConstraint = prevView.bottomAnchor.constraint(
+                    equalTo: nextView.topAnchor, constant: -pageSpacing)
                 prevView.bottomConstraint?.isActive = true
             } else if let prevView = prevView {
                 // This was the last view
@@ -354,24 +368,88 @@ class PagerView<Element, Loader: ViewLoader, Content: View>: UIScrollView, UIScr
                 nextView.topConstraint = nextView.topAnchor.constraint(equalTo: topAnchor)
                 nextView.topConstraint?.isActive = true
             }
-            
+
             if removedIndex < (loadedViews.first?.index ?? 0) {
                 contentOffset.y -= pageHeight
             }
         }
     }
-    
-    
+
     func removeOutOfFrameViews() {
         guard let viewLoader = viewLoader else { return }
-        
-        for view in loadedViews {
-            if abs(currentIndex - view.index) > config.preloadAmount || view.index >= viewLoader.dataCount {
-                remove(view: view)
+
+        // Collect indices to remove (avoiding mutation during iteration)
+        let indicesToRemove = loadedViews.enumerated().compactMap { (idx, view) -> Int? in
+            if abs(currentIndex - view.index) > config.preloadAmount
+                || view.index >= viewLoader.dataCount
+            {
+                return idx
+            }
+            return nil
+        }
+
+        guard !indicesToRemove.isEmpty else { return }
+
+        // For efficiency, if removing many views, batch remove them without constraint re-linking
+        if indicesToRemove.count > 2 {
+            // Track which views to keep
+            let keepIndices = Set(0..<loadedViews.count).subtracting(indicesToRemove)
+            let keptViews = keepIndices.sorted().compactMap { loadedViews[safe: $0] }
+
+            // Remove all views from superview first (no constraint re-linking)
+            for idx in indicesToRemove.reversed() {
+                loadedViews[idx].removeFromSuperview()
+            }
+            loadedViews = keptViews
+
+            // Re-link constraints for remaining views
+            for (i, view) in loadedViews.enumerated() {
+                if config.direction == .horizontal {
+                    view.leadingConstraint?.isActive = false
+                    view.trailingConstraint?.isActive = false
+
+                    if i == 0 {
+                        view.leadingConstraint = view.leadingAnchor.constraint(
+                            equalTo: leadingAnchor)
+                    } else if let prevView = loadedViews[safe: i - 1] {
+                        view.leadingConstraint = view.leadingAnchor.constraint(
+                            equalTo: prevView.trailingAnchor, constant: pageSpacing)
+                    }
+
+                    if i == loadedViews.count - 1 {
+                        view.trailingConstraint = view.trailingAnchor.constraint(
+                            equalTo: trailingAnchor)
+                    }
+
+                    view.leadingConstraint?.isActive = true
+                    view.trailingConstraint?.isActive = true
+                } else {
+                    view.topConstraint?.isActive = false
+                    view.bottomConstraint?.isActive = false
+
+                    if i == 0 {
+                        view.topConstraint = view.topAnchor.constraint(equalTo: topAnchor)
+                    } else if let prevView = loadedViews[safe: i - 1] {
+                        view.topConstraint = view.topAnchor.constraint(
+                            equalTo: prevView.bottomAnchor, constant: pageSpacing)
+                    }
+
+                    if i == loadedViews.count - 1 {
+                        view.bottomConstraint = view.bottomAnchor.constraint(equalTo: bottomAnchor)
+                    }
+
+                    view.topConstraint?.isActive = true
+                    view.bottomConstraint?.isActive = true
+                }
+            }
+        } else {
+            // For 1-2 views, use original method
+            for idx in indicesToRemove.reversed() {
+                remove(view: loadedViews[idx])
             }
         }
     }
-    
+
     func resizeOutOfBoundsViews() {
         for v in loadedViews {
             if v.index != currentIndex {
@@ -379,17 +457,19 @@ class PagerView<Element, Loader: ViewLoader, Content: View>: UIScrollView, UIScr
             }
         }
     }
-    
+
     func goToPage(_ page: Int, animated: Bool) {
         // Check if we're jumping outside the current loaded range
         // If so, clear all views at once to avoid O(n) constraint re-linking overhead
         let shouldClearAll: Bool
         if let first = loadedViews.first, let last = loadedViews.last {
-            shouldClearAll = page < first.index - config.preloadAmount || page > last.index + config.preloadAmount
+            shouldClearAll =
+                page < first.index - config.preloadAmount
+                || page > last.index + config.preloadAmount
         } else {
             shouldClearAll = false
         }
-        
+
         if shouldClearAll {
             // Efficiently clear all views at once without constraint re-linking
             for view in loadedViews {
@@ -397,93 +477,107 @@ class PagerView<Element, Loader: ViewLoader, Content: View>: UIScrollView, UIScr
             }
             loadedViews.removeAll()
         }
-        
+
         currentIndex = page
         DispatchQueue.main.async {
             self.computeViewState(immediate: true)
             self.ensureCurrentPage(animated: animated)
         }
     }
-    
+
     func ensureCurrentPage(animated: Bool) {
-        guard let index = loadedViews.firstIndex(where: { $0.index == currentIndex }) else { return }
+        guard let index = loadedViews.firstIndex(where: { $0.index == currentIndex }) else {
+            return
+        }
         if config.direction == .horizontal {
-            setContentOffset(CGPoint(x: CGFloat(index) * pageWidth, y: contentOffset.y), animated: animated)
+            setContentOffset(
+                CGPoint(x: CGFloat(index) * pageWidth, y: contentOffset.y), animated: animated)
         } else {
-            setContentOffset(CGPoint(x: contentOffset.x, y: CGFloat(index) * pageHeight), animated: animated)
+            setContentOffset(
+                CGPoint(x: contentOffset.x, y: CGFloat(index) * pageHeight), animated: animated)
         }
         self.currentView.dismissEnabled = true
     }
-    
+
     func loadMoreIfNeeded() {
         guard let loadMoreCallback = config.loadMoreCallback else { return }
-        guard case let .lastElement(offset) = config.loadMoreOn else { return }
+        guard case .lastElement(let offset) = config.loadMoreOn else { return }
         guard let viewLoader = viewLoader else { return }
-        
+
         if currentIndex + offset >= viewLoader.dataCount - 1 {
             DispatchQueue.main.async {
                 loadMoreCallback()
             }
         }
     }
-    
+
     func scrollingFinished() {
         let newIndex = currentView.index
-        
+
         if currentIndex != newIndex {
             currentIndex = newIndex
             page.wrappedValue = newIndex
         }
-        
+
         computeViewState()
-        
+
         hasNotfiedOverscroll = false
         resizeOutOfBoundsViews()
         if loadedViews.isEmpty { return }
         currentView.dismissEnabled = true
     }
-    
+
     // MARK: UISCrollVieDelegate methods
-    
+
     var lastPos: CGFloat = 0
     var hasNotfiedOverscroll = false
-    
+
     func scrollViewWillBeginDragging(_ scrollView: UIScrollView) {
         config.dragCallback?()
     }
 
     public func scrollViewDidScroll(_ scrollView: UIScrollView) {
-        
-        if !scrollView.isTracking, !isRotating, (currentView.index != page.wrappedValue || page.wrappedValue != currentIndex ) {
+
+        if !scrollView.isTracking, !isRotating,
+            currentView.index != page.wrappedValue || page.wrappedValue != currentIndex
+        {
             currentIndex = currentView.index
             page.wrappedValue = currentIndex
         }
-        
+
         if let index = loadedViews[safe: relativeIndex]?.index {
-            config.absoluteContentPosition?.wrappedValue = CGFloat(index) + absoluteOffset - CGFloat(relativeIndex)
+            config.absoluteContentPosition?.wrappedValue =
+                CGFloat(index) + absoluteOffset - CGFloat(relativeIndex)
         }
-        
+
         if !hasNotfiedOverscroll {
-            if relativeIndex >= loadedViews.count-1, absoluteOffset - CGFloat(relativeIndex) > config.overscrollThreshold {
+            if relativeIndex >= loadedViews.count - 1,
+                absoluteOffset - CGFloat(relativeIndex) > config.overscrollThreshold
+            {
                 config.overscrollCallback?(.end)
                 hasNotfiedOverscroll = true
             }
-            
-            if relativeIndex <= 0, absoluteOffset - CGFloat(relativeIndex) < -config.overscrollThreshold {
+
+            if relativeIndex <= 0,
+                absoluteOffset - CGFloat(relativeIndex) < -config.overscrollThreshold
+            {
                 config.overscrollCallback?(.beginning)
                 hasNotfiedOverscroll = true
             }
         }
-        
+
         if loadedViews.isEmpty { return }
         self.currentView.dismissEnabled = false
     }
-    
-    public func scrollViewWillEndDragging(_ scrollView: UIScrollView, withVelocity velocity: CGPoint, targetContentOffset: UnsafeMutablePointer<CGPoint>) {
-        
+
+    public func scrollViewWillEndDragging(
+        _ scrollView: UIScrollView, withVelocity velocity: CGPoint,
+        targetContentOffset: UnsafeMutablePointer<CGPoint>
+    ) {
+
         let targetPage: CGFloat
-        let velocityThreshold: CGFloat = 0.5 // a value to tune
-        
+        let velocityThreshold: CGFloat = 0.5  // a value to tune
+
         if config.direction == .horizontal {
             let currentRelativePage = scrollView.contentOffset.x / pageWidth
             if velocity.x > velocityThreshold {
@@ -509,13 +603,15 @@ class PagerView<Element, Loader: ViewLoader, Content: View>: UIScrollView, UIScr
             targetContentOffset.pointee.y = targetPage * pageHeight
         }
     }
-    
-    public func scrollViewDidEndDragging(_ scrollView: UIScrollView, willDecelerate decelerate: Bool) {
+
+    public func scrollViewDidEndDragging(
+        _ scrollView: UIScrollView, willDecelerate decelerate: Bool
+    ) {
         if !decelerate {
             scrollingFinished()
         }
     }
-    
+
     public func scrollViewDidEndDecelerating(_ scrollView: UIScrollView) {
         scrollingFinished()
     }
