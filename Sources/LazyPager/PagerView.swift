@@ -131,9 +131,9 @@ where Loader.Element == Element, Loader.Content == Content {
             }
             for i in ((currentIndex - config.preloadAmount)..<currentIndex).reversed() {
                 if immediate {
-                    schedulePrepend(at: i)
-                } else {
                     prependView(at: i)
+                } else {
+                    schedulePrepend(at: i)
                 }
             }
         }
@@ -378,74 +378,11 @@ where Loader.Element == Element, Loader.Content == Content {
     func removeOutOfFrameViews() {
         guard let viewLoader = viewLoader else { return }
 
-        // Collect indices to remove (avoiding mutation during iteration)
-        let indicesToRemove = loadedViews.enumerated().compactMap { (idx, view) -> Int? in
+        for view in loadedViews {
             if abs(currentIndex - view.index) > config.preloadAmount
                 || view.index >= viewLoader.dataCount
             {
-                return idx
-            }
-            return nil
-        }
-
-        guard !indicesToRemove.isEmpty else { return }
-
-        // For efficiency, if removing many views, batch remove them without constraint re-linking
-        if indicesToRemove.count > 2 {
-            // Track which views to keep
-            let keepIndices = Set(0..<loadedViews.count).subtracting(indicesToRemove)
-            let keptViews = keepIndices.sorted().compactMap { loadedViews[safe: $0] }
-
-            // Remove all views from superview first (no constraint re-linking)
-            for idx in indicesToRemove.reversed() {
-                loadedViews[idx].removeFromSuperview()
-            }
-            loadedViews = keptViews
-
-            // Re-link constraints for remaining views
-            for (i, view) in loadedViews.enumerated() {
-                if config.direction == .horizontal {
-                    view.leadingConstraint?.isActive = false
-                    view.trailingConstraint?.isActive = false
-
-                    if i == 0 {
-                        view.leadingConstraint = view.leadingAnchor.constraint(
-                            equalTo: leadingAnchor)
-                    } else if let prevView = loadedViews[safe: i - 1] {
-                        view.leadingConstraint = view.leadingAnchor.constraint(
-                            equalTo: prevView.trailingAnchor, constant: pageSpacing)
-                    }
-
-                    if i == loadedViews.count - 1 {
-                        view.trailingConstraint = view.trailingAnchor.constraint(
-                            equalTo: trailingAnchor)
-                    }
-
-                    view.leadingConstraint?.isActive = true
-                    view.trailingConstraint?.isActive = true
-                } else {
-                    view.topConstraint?.isActive = false
-                    view.bottomConstraint?.isActive = false
-
-                    if i == 0 {
-                        view.topConstraint = view.topAnchor.constraint(equalTo: topAnchor)
-                    } else if let prevView = loadedViews[safe: i - 1] {
-                        view.topConstraint = view.topAnchor.constraint(
-                            equalTo: prevView.bottomAnchor, constant: pageSpacing)
-                    }
-
-                    if i == loadedViews.count - 1 {
-                        view.bottomConstraint = view.bottomAnchor.constraint(equalTo: bottomAnchor)
-                    }
-
-                    view.topConstraint?.isActive = true
-                    view.bottomConstraint?.isActive = true
-                }
-            }
-        } else {
-            // For 1-2 views, use original method
-            for idx in indicesToRemove.reversed() {
-                remove(view: loadedViews[idx])
+                remove(view: view)
             }
         }
     }
